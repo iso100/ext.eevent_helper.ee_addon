@@ -1,5 +1,7 @@
 <?php
-
+/**
+ * Version 1.2.0 Added MSM support	
+*/
 if(!defined('EXT'))
 {
 	exit('Invalid file request');
@@ -9,7 +11,7 @@ class Eevent_helper
 {
 	var $settings        = array();
 	var $name            = 'EEvent Helper';
-	var $version         = '1.1';
+	var $version         = '1.2.1';
 	var $description     = 'Automatically sets the expiration date for event entries, and more.';
 	var $settings_exist  = 'y';
 	var $docs_url        = 'http://github.com/amphibian/ext.eevent_helper.ee_addon';
@@ -21,22 +23,74 @@ class Eevent_helper
 	
 	function Eevent_helper($settings='')
 	{
-	    $this->settings = $settings;
+    	$this->settings = $this->get_site_settings($settings);
 	}
 	// END
 	
+
+
+  	/**
+  	 * Get Site Settings
+   	* @param array $settings Current extension settings (not site-specific)
+   	* @return array Site-specific extension settings
+   	* @since version 1.2.0
+   	*/
+  	function get_site_settings($settings=array())
+  	{
+    	global $PREFS;
+    
+    	$site_id = $PREFS->ini('site_id');
+    	return isset($settings[$site_id])
+      		? $settings[$site_id]
+      		: array();
+  	}
 	
+
+	/**
+	 * Get All Settings
+	 *
+	 * @return array   All extension settings
+	 * @since  version 1.2.0
+	 */
+	function get_all_settings()
+	{
+		global $DB;
+		
+		$query = $DB->query("SELECT settings
+		                     FROM exp_extensions
+		                     WHERE class = 'Eevent_helper'
+		                       AND settings != ''
+		                     LIMIT 1");
+		
+		return $query->num_rows
+			? unserialize($query->row['settings'])
+			: array();
+	}
+
 	// --------------------------------
 	//  Settings
 	// --------------------------------  
 	
 	function settings_form($current)
 	{	    
-		global $DB, $DSP, $LANG, $IN;
+		global $DB, $DSP, $LANG, $IN, $PREFS;
+
+    	$current = $this->get_site_settings($current);
+		
+    	// Is MSM enabled?
+    	$msm = ($PREFS->ini('multiple_sites_enabled') == 'y') ? TRUE : FALSE;
+ 		
+    	// Get the current Site ID
+    	$site_id = $PREFS->ini('site_id');
+
 		
 		// Get a list of weblogs
 		$weblogs = array('--' => '--');
-		$query = $DB->query("SELECT blog_title, weblog_id FROM exp_weblogs ORDER BY blog_title ASC");
+		$query = $DB->query("SELECT blog_title, weblog_id 
+							FROM exp_weblogs "
+							 . ($msm ? "WHERE site_id = {$site_id} " : '')
+							 . "ORDER BY blog_title ASC");
+
 		if($query->num_rows > 0) {
 			foreach($query->result as $value) {
 				$weblogs[$value['weblog_id']] = $value['blog_title'];
@@ -45,7 +99,12 @@ class Eevent_helper
 		
 		// Get a list of date fields
 		$fields = array();
-		$query = $DB->query("SELECT w.field_group, w.blog_title, f.field_id, f.field_label FROM exp_weblogs as w, exp_weblog_fields as f WHERE w.field_group = f.group_id AND f.field_type = 'date'ORDER BY w.blog_title ASC,f.field_order ASC");
+		$query = $DB->query("SELECT w.field_group, w.blog_title, f.field_id, f.field_label 
+							FROM exp_weblogs as w, exp_weblog_fields as f 
+							WHERE w.field_group = f.group_id AND f.field_type = 'date'"
+							 . ($msm ? "AND w.site_id = {$site_id} " : '')
+							 . "ORDER BY w.blog_title ASC,f.field_order ASC");
+							 
 		if($query->num_rows > 0) {
 			foreach($query->result as $value) {
 				$fields['field_id_' . $value['field_id']] = $value['blog_title'] . ': ' . $value['field_label'];
@@ -220,12 +279,22 @@ class Eevent_helper
 	}
 	// END
 	
-	
+
+	/**
+	 * save_settings
+	 *
+	 * @return array  saved extension settings
+	 * @since  version 1.2.0
+	 */
 	function save_settings()
 	{
-		global $DB;
+		global $DB, $PREFS;;
 		
-		$settings = array(
+		$settings = $this->get_all_settings();
+		$current = $this->get_site_settings($settings);
+
+		// Save new settings
+    	$settings[$PREFS->ini('site_id')] = $this->settings = array(
 			'event_weblog' => $_POST['event_weblog'],
 			'start_date_field' => $_POST['start_date_field'],
 			'end_date_field' => $_POST['end_date_field'],
@@ -452,6 +521,14 @@ class Eevent_helper
 	function activate_extension()
 	{
 	    global $DB;
+
+		// Get settings
+		$settings = $this->get_all_settings();
+
+		// Delete old hooks
+		$DB->query("DELETE FROM exp_extensions
+		            WHERE class = 'Eevent_helper'");
+	   
 	    
 	    $hooks = array(
 	    	'submit_new_entry_start' => 'submit_new_entry_start',
@@ -466,7 +543,7 @@ class Eevent_helper
 			        'class'        => "Eevent_helper",
 			        'method'       => $method,
 			        'hook'         => $hook,
-			        'settings'     => '',
+			        'settings'     => $settings ? addslashes(serialize($settings)) : '',
 			        'priority'     => 10,
 			        'version'      => $this->version,
 			        'enabled'      => "y"
@@ -486,14 +563,17 @@ class Eevent_helper
 	{
 	    global $DB;
 	    
-	    if ($current == '' OR $current == $this->version)
-	    {
-	        return FALSE;
-	    }
+		if ($current < '1.2.0')
+		{
+			$this->activate_extension();
+		}
+		else
+		{
 	    
-	    $DB->query("UPDATE exp_extensions 
+	    	$DB->query("UPDATE exp_extensions 
 	                SET version = '".$DB->escape_str($this->version)."' 
 	                WHERE class = 'Eevent_helper'");
+		}
 	}
 	// END
 	

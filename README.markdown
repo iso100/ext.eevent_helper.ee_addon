@@ -6,6 +6,8 @@ Once activiated, when entries are published in any of your specified "events" we
 
 You can also specify a custom *Start Date* field to use instead of the *Entry Date* calendar from the **Date** tab. Once you specify this field, you can automatically set the *Entry Date* to match the custom *Start Date* field, eliminating the need for the **Date** tab altogether.
 
+**New Feature in 1.2.2:** A new option "Ignore End Date" is available in the settings menu. This will allow you to use the time-removal feature for Start Date for dates you do not want to auto expire that same day.
+
 This way, you and your clients can use friendlier custom date fields for both start and end dates, while always keeping the entry's *Entry Date* and *Expiration Date* set properly for use in `exp:weblog:entries` tag parameters.
 
 Optionally, you can remove the "time" portion of date fields in your chosen events weblogs (with time set to 00:00:00 upon publishing); and also remove the date localization toggle your events weblogs' date fields.

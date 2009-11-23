@@ -1,6 +1,6 @@
 <?php
 /**
- * Version 1.2.0 Added MSM support	
+ * Version 1.2.2 Added ignore End Date feature
 */
 if(!defined('EXT'))
 {
@@ -11,7 +11,7 @@ class Eevent_helper
 {
 	var $settings        = array();
 	var $name            = 'EEvent Helper';
-	var $version         = '1.2.1';
+	var $version         = '1.2.2';
 	var $description     = 'Automatically sets the expiration date for event entries, and more.';
 	var $settings_exist  = 'y';
 	var $docs_url        = 'http://github.com/amphibian/ext.eevent_helper.ee_addon';
@@ -189,6 +189,7 @@ class Eevent_helper
 			$DSP->body .=   $DSP->td('tableCellOne');
 			$DSP->body .=   $DSP->input_select_header('end_date_field[]');
 			$DSP->body .=	$DSP->input_select_option('', $LANG->line('none'));
+			$DSP->body .=	$DSP->input_select_option('ignore', $LANG->line('ignore'), ( isset($current['end_date_field'][$i]) && $current['end_date_field'][$i] == 'ignore' ) ? 1 : '');
 			foreach($fields as $id => $title)
 			{
 				$DSP->body .= $DSP->input_select_option($id, $title, ( isset($current['end_date_field'][$i]) && $current['end_date_field'][$i] == $id ) ? 1 : '');
@@ -357,37 +358,44 @@ class Eevent_helper
 					$_POST['entry_date'] = substr($_POST['entry_date'], 0, 10) . ' 00:00:00';
 				}
 				
-				// Zero the end date if applicable
-				if($this->settings['end_date_field'][$key] && $_POST[$this->settings['end_date_field'][$key]])
+				//If setting is not set to ignore
+				if($this->settings['end_date_field'][$key] != "ignore")
 				{
-					$_POST[$this->settings['end_date_field'][$key]] = 
-					substr($_POST[$this->settings['end_date_field'][$key]], 0, 10) . ' 00:00:00';
-				}
-			}
-		
-			// Set the expiration date
-			if($this->settings['end_date_field'][$key] && 
-			$_POST[$this->settings['end_date_field'][$key]]) // We're using an end date
-			{ 
-				$_POST['expiration_date'] = 
-				substr($_POST[$this->settings['end_date_field'][$key]], 0, 10) . ' 23:59:59';
-			}
-			else
-			{ 
-				if($this->settings['start_date_field'][$key]) // We're using a custom start date
-				{
-					if($_POST[$this->settings['start_date_field'][$key]]) // Make sure we have a date
+					// Zero the end date if applicable
+					if($this->settings['end_date_field'][$key] && $_POST[$this->settings['end_date_field'][$key]])
 					{
-						$_POST['expiration_date'] = 
-						substr($_POST[$this->settings['start_date_field'][$key]], 0, 10) . ' 23:59:59';
+						$_POST[$this->settings['end_date_field'][$key]] = 
+						substr($_POST[$this->settings['end_date_field'][$key]], 0, 10) . ' 00:00:00';
 					}
 				}
-				else // We're using the entry_date
-				{
-				$_POST['expiration_date'] = substr($_POST['entry_date'], 0, 10) . ' 23:59:59';
+			}
+				
+			if($this->settings['end_date_field'][$key] != "ignore")
+			{
+				// Set the expiration date
+				if($this->settings['end_date_field'][$key] && 
+				$_POST[$this->settings['end_date_field'][$key]]) // We're using an end date
+				{ 
+					$_POST['expiration_date'] = 
+					substr($_POST[$this->settings['end_date_field'][$key]], 0, 10) . ' 23:59:59';
+				}
+				else
+				{ 
+					if($this->settings['start_date_field'][$key]) // We're using a custom start date
+					{
+						if($_POST[$this->settings['start_date_field'][$key]]) // Make sure we have a date
+						{
+							$_POST['expiration_date'] = 
+							substr($_POST[$this->settings['start_date_field'][$key]], 0, 10) . ' 23:59:59';
+						}
+					}
+					else // We're using the entry_date
+					{
+						$_POST['expiration_date'] = substr($_POST['entry_date'], 0, 10) . ' 23:59:59';
+					}
 				}
 			}
-			
+				
 			// Clone start date to entry date
 			if($this->settings['clone_date'][$key] == 'yes' && $this->settings['start_date_field'][$key] && $_POST[$this->settings['start_date_field'][$key]])
 			{

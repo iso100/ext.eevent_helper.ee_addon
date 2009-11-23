@@ -8,6 +8,7 @@ $L = array(
 'start_date_field' => 'Choose a Start Date field',
 'use_entry_date' => 'Use Entry Date',
 'end_date_field' => 'Choose an End Date field',
+'ignore' => 'Ignore End Date',
 'none' => 'None',
 'clone_date' => 'Clone custom Start Date to Entry Date?',
 'midnight' => 'Remove the time from date fields in this ' . $PREFS->core_ini['weblog_nomenclature'] . '?',
